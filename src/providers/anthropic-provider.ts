@@ -172,7 +172,13 @@ export class AnthropicProvider extends BaseProvider {
       });
     }
     const tools = request.tools?.length && {
-      tools: request.tools.map((t) => ({ name: t.name, ...(t.description && { description: t.description }), input_schema: t.parameters })),
+      // A cache breakpoint on the last tool caches the whole tool block (it comes before system and messages on the wire).
+      tools: request.tools.map((t, i) => ({
+        name: t.name,
+        ...(t.description && { description: t.description }),
+        input_schema: t.parameters,
+        ...(request.cache && i === request.tools!.length - 1 && { cache_control: { type: 'ephemeral' } }),
+      })),
       ...(request.toolChoice && { tool_choice: toolChoiceOf(request.toolChoice) }),
     };
     if (wantsJson(request)) {
@@ -180,7 +186,13 @@ export class AnthropicProvider extends BaseProvider {
       const schema = jsonSchemaOf(request.schema);
       systemParts.push(schema ? `${JSON_NUDGE} The JSON must match this JSON Schema: ${JSON.stringify(schema)}` : JSON_NUDGE);
     }
-    const system = systemParts.join(SYSTEM_JOINER);
+    const systemText = systemParts.join(SYSTEM_JOINER);
+    // `cache` sends the system prompt as a single cached text block instead of a bare string.
+    const system = systemText
+      ? request.cache
+        ? [{ type: 'text', text: systemText, cache_control: { type: 'ephemeral' } }]
+        : systemText
+      : undefined;
     const maxTokens = request.maxTokens ?? 4096;
     // Extended thinking needs a budget of at least 1024 below max_tokens and
     // rejects any temperature but 1.

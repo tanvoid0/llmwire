@@ -280,6 +280,29 @@ List prices for Anthropic, OpenAI, Google, DeepSeek, xAI and Mistral models, USD
 
 ---
 
+## Prompt caching
+
+`cache: true` marks the stable prompt prefix cacheable, so a prefix you send on
+every call is billed at the provider's cache rate instead of in full.
+
+```typescript
+const res = await aiFactory.process({
+  modelId: 'claude-sonnet-4-5',
+  systemPrompt: longSystemPrompt,   // the part that repeats across calls
+  tools,
+  prompt: 'And the second question?',
+  cache: true,
+});
+res.usage?.cachedTokens; // prompt tokens served from cache, when the provider reports it
+```
+
+- **Anthropic** needs explicit cache breakpoints, so `cache: true` stamps `cache_control: { type: 'ephemeral' }` on the system prompt and the last tool definition — the spans that repeat. A block below the provider's minimum (1024 tokens, 2048 for Haiku) simply isn't cached; nothing errors.
+- **OpenAI** and other OpenAI-format hosts cache automatically server-side; `cache: true` is a no-op there, and a hit still comes back on `usage.cachedTokens`.
+
+For finer control (more breakpoints, caching a specific message), set `cache_control` yourself through `providerOptions`.
+
+---
+
 ## Reasoning models
 
 `reasoning: true` lets a thinking model think. The thinking comes back as `reasoning` on the response and as `{ type: 'reasoning' }` chunks on a stream. It is never mixed into the answer.
@@ -410,26 +433,27 @@ Measured with `npm run bench` on Node 24.14, 2026-09-14, against a local mock se
 
 ## Comparison
 
-Snapshot taken 2026-09-13 from each project's public docs; corrections welcome as issues.
+How llmwire compares to **Vercel AI SDK**, **LangChain.js**, token.js, multi-llm-ts and llm.js. Snapshot taken 2026-10-07 from each project's public docs; corrections welcome as issues.
 
-| | Vercel AI SDK 6 | token.js | multi-llm-ts 5 | llm.js | **llmwire 2.0** |
-|---|---|---|---|---|---|
-| Providers | ~30 via packages | 200+ (OpenAI format) | ~20 | ~10 | 5 built in, 6 presets, any OpenAI-compatible host |
-| Runtime deps | many (zod, ai-core, per-provider pkgs) | some | some | some | **0** |
-| Streaming everywhere | yes | yes | yes | yes | **yes** (SSE and NDJSON, typed chunks) |
-| Tool calling | yes, agent loop | yes | yes | yes | **yes**, `maxSteps` loop, leaked `<function=>` recovery |
-| Structured output | Zod `generateObject` | JSON mode | Zod | JSON mode | **any Standard Schema** (Zod, Valibot, ArkType) or JSON Schema |
-| Images in | yes | yes | yes | yes | **yes** (URL, bytes, base64) |
-| Typed error taxonomy | yes (`APICallError`, retryable) | partial | partial | partial | **yes** (`code`, `retryable`, `hint`, provider message untouched) |
-| Retry with backoff | yes | no | no | no | **yes**, retryable codes only, `Retry-After` honoured |
-| Edge / browser / Workers | yes | yes | yes | yes | **yes** (`/ollama-cli` is the only Node-only entry) |
-| Agent class / multi-agent | `Agent`, agents as tools | no | no | no | **yes**: `Agent`, `asTool`, `handoff`, `Session` |
-| MCP client | via `@modelcontextprotocol/sdk` | no | no | no | **yes**, no SDK: Streamable HTTP and stdio |
-| Embeddings | yes | no | yes | yes | **yes** (OpenAI-format, Gemini, Ollama) + `cosine` |
-| Scheduled routines | no (host feature) | no | no | no | **yes**: interval or cron, in-process, `Store`-backed |
-| Local-first (Ollama, LM Studio) zero config | no | no | partial | yes | **yes** |
-| Ollama management (pull/list/rm/ps) | no | no | no | no | **yes** |
-| npx CLI | no | no | no | no | **yes** (`doctor`, models, keys) |
+| | Vercel AI SDK 6 | LangChain.js | token.js | multi-llm-ts 5 | llm.js | **llmwire 2.2** |
+|---|---|---|---|---|---|---|
+| Providers | ~30 via packages | 100+ via integration packages | 200+ (OpenAI format) | ~20 | ~10 | 5 built in, 6 presets, any OpenAI-compatible host |
+| Runtime deps | many (zod, ai-core, per-provider pkgs) | many (`langchain`, `@langchain/core`, per-integration) | some | some | some | **0** |
+| Streaming everywhere | yes | yes | yes | yes | yes | **yes** (SSE and NDJSON, typed chunks) |
+| Tool calling | yes, agent loop | yes (LangGraph / AgentExecutor) | yes | yes | yes | **yes**, `maxSteps` loop, leaked `<function=>` recovery |
+| Structured output | Zod `generateObject` | Zod `withStructuredOutput` | JSON mode | Zod | JSON mode | **any Standard Schema** (Zod, Valibot, ArkType) or JSON Schema |
+| Images in | yes | yes | yes | yes | yes | **yes** (URL, bytes, base64) |
+| Typed error taxonomy | yes (`APICallError`, retryable) | partial | partial | partial | partial | **yes** (`code`, `retryable`, `hint`, provider message untouched) |
+| Retry with backoff | yes | yes | no | no | no | **yes**, retryable codes only, `Retry-After` honoured |
+| Edge / browser / Workers | yes | partial (core runs; full bundle is heavy) | yes | yes | yes | **yes** (`/ollama-cli` is the only Node-only entry) |
+| Agent class / multi-agent | `Agent`, agents as tools | yes (LangGraph) | no | no | no | **yes**: `Agent`, `asTool`, `handoff`, `Session` |
+| MCP client | via `@modelcontextprotocol/sdk` | via `@langchain/mcp-adapters` | no | no | no | **yes**, no SDK: Streamable HTTP and stdio |
+| Prompt caching | manual per message | manual per message | no | no | no | **`cache: true`** (Anthropic breakpoints; OpenAI automatic) |
+| Embeddings | yes | yes | no | yes | yes | **yes** (OpenAI-format, Gemini, Ollama) + `cosine` |
+| Scheduled routines | no (host feature) | no | no | no | no | **yes**: interval or cron, in-process, `Store`-backed |
+| Local-first (Ollama, LM Studio) zero config | no | partial | no | partial | yes | **yes** |
+| Ollama management (pull/list/rm/ps) | no | no | no | no | no | **yes** |
+| npx CLI | no | yes (`langgraph`) | no | no | no | **yes** (`doctor`, models, keys) |
 
 ---
 
@@ -692,7 +716,7 @@ Hooks are awaited; `onResponse` gets the `AIResponse`, or the `done` chunk for a
 <details>
 <summary><strong>Types</strong></summary>
 
-- **AIRequest**: `prompt?` (one of `prompt` / `messages` required), `messages?` (`Message[]`), `modelId?`, `temperature?`, `maxTokens?`, `systemPrompt?`, `jsonMode?`, `schema?` (JSON Schema or Standard Schema), `tools?`, `toolChoice?`, `maxSteps?`, `signal?` (`AbortSignal`), `timeout?` (whole request, ms, default 30000), `streamIdleTimeout?` (ms of upstream silence before a stream fails, default 60000), `metadata?`, `reasoning?` (let a thinking model think; see [Reasoning models](#reasoning-models)), `providerOptions?` (merged last into the wire body), `onStep?(step)` (after each tool round)
+- **AIRequest**: `prompt?` (one of `prompt` / `messages` required), `messages?` (`Message[]`), `modelId?`, `temperature?`, `maxTokens?`, `systemPrompt?`, `jsonMode?`, `schema?` (JSON Schema or Standard Schema), `tools?`, `toolChoice?`, `maxSteps?`, `signal?` (`AbortSignal`), `timeout?` (whole request, ms, default 30000), `streamIdleTimeout?` (ms of upstream silence before a stream fails, default 60000), `metadata?`, `reasoning?` (let a thinking model think; see [Reasoning models](#reasoning-models)), `cache?` (mark the stable prefix cacheable; see [Prompt caching](#prompt-caching)), `providerOptions?` (merged last into the wire body), `onStep?(step)` (after each tool round)
 - **Message**: `{ role: 'system', content }` | `{ role: 'user', content: string | (TextPart | ImagePart)[] }` | `{ role: 'assistant', content, toolCalls? }` | `{ role: 'tool', toolCallId, name, content }`
 - **Tool**: `name`, `description?`, `parameters` (JSON Schema), `execute?(args, { signal })`; **ToolCall**: `id`, `name`, `arguments`; **ToolResult**: `toolCallId`, `name`, `result?`, `error?`; **Step**: `text`, `toolCalls`, `toolResults`, `usage?`
 - **AIResponse**: `success`, `data?`, `reasoning?`, `object?` (when `schema` given), `toolCalls?`, `steps?`, `error?`, `errorInfo?` (`AIError`, set when `success` is false), `finishReason` (`'stop' | 'length' | 'tool_calls' | 'content_filter' | 'error' | 'unknown'`), `usage?` (`TokenUsage`), `modelUsed?`, `providerId?`, `requestId?`, `durationMs`, `retryCount`, `fallbackUsed`

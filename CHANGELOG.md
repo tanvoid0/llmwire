@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-07
+
+### Added
+
+- `AIRequest.cache`: `cache: true` marks the stable prompt prefix cacheable. On Anthropic it stamps `cache_control: { type: 'ephemeral' }` on the system prompt and the last tool definition, so a repeated prefix is billed at the cache rate; a hit comes back on `usage.cachedTokens`. OpenAI and other OpenAI-format hosts cache automatically and ignore the flag. For finer control, set `cache_control` through `providerOptions`.
+
 ### Changed
 
 - `llmwire/cost`: DeepSeek, xAI and Mistral list prices added to `PRICES` (checked 2026-09-14).
