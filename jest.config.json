@@ -27,6 +27,7 @@
     "**/tests/reasoning.test.ts",
     "**/tests/phase2.test.ts",
     "**/tests/messages.test.ts",
+    "**/tests/prompt-cache.test.ts",
     "**/tests/tools.test.ts",
     "**/tests/schema.test.ts",
     "**/tests/agent.test.ts",

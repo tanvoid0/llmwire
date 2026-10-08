@@ -1,6 +1,6 @@
 {
   "name": "llmwire",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Zero-dependency TypeScript client for OpenAI, Anthropic, Gemini, Ollama, LM Studio, Groq, OpenRouter, DeepSeek, Mistral, xAI, Together and any OpenAI-compatible API. Real streaming, tool calling, structured output (Standard Schema or JSON Schema), images, typed provider errors with hints, retries with backoff, static model routing. Agents, MCP client, sessions, embeddings as separate entries. Node 18+, Bun, Deno, edge, browsers.",
   "sideEffects": false,
   "type": "module",

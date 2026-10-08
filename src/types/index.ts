@@ -184,6 +184,16 @@ export interface AIRequest {
    */
   reasoning?: boolean;
   /**
+   * Mark the stable prompt prefix as cacheable so a repeated prefix is billed
+   * at the provider's cache rate. Anthropic: stamps `cache_control: { type:
+   * 'ephemeral' }` on the system prompt and the last tool definition (the parts
+   * that repeat across calls). OpenAI and other OpenAI-format hosts cache
+   * automatically and ignore this. Cache hits come back as `usage.cachedTokens`
+   * where the provider reports them. For finer control, set `cache_control`
+   * yourself through `providerOptions`.
+   */
+  cache?: boolean;
+  /**
    * Provider-specific fields merged last into the wire body, one level deep
    * (`{ options: { num_ctx: 8192 } }` for Ollama, `{ top_p: 0.9 }` for an
    * OpenAI-format host). Whatever you put here wins over what the client sets.
