@@ -8,7 +8,7 @@ import type { ToolCall } from '../types/index.js';
 import { parseSSE } from '../core/http.js';
 
 const DEFAULT_BASE = 'https://generativelanguage.googleapis.com';
-const DEFAULT_MODEL = 'gemini-2.0-flash';
+const DEFAULT_MODEL = 'gemini-3.8-flash';
 
 /**
  * Generous by default: structured replies (plans, tool calls) truncate
