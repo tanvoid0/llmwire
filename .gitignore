@@ -107,3 +107,4 @@ docs/
 
 # Generated re-export shim (scripts/build-shim.mjs)
 shim/
+.claude/
